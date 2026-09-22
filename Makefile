@@ -10,10 +10,10 @@ backend:
 frontend:
 	cd frontend && pnpm dev
 
-# 初回セットアップ: gem、node modules、hekireki のモデル生成、SQLite のテーブル、seed。
+# 初回セットアップ: gem、node modules、hekireki のモデル生成、SQLite のテーブル、seed、フロントの型生成。
 setup:
 	cd backend && bin/setup --seed --skip-server
-	cd frontend && pnpm install
+	cd frontend && pnpm install && pnpm generate
 
 test:
 	cd backend && bin/rails test && bin/rubocop

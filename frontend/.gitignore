@@ -3,8 +3,10 @@ dist
 .tanstack
 *.local
 
-# Written by @tanstack/router-plugin on dev/build.
+# 生成物。routeTree.gen.ts は @tanstack/router-plugin が dev/build で、
+# src/api/schema.d.ts は `pnpm generate` が backend/doc/openapi.yaml から書く。
 src/routeTree.gen.ts
+src/api/schema.d.ts
 
 # Playwright の出力
 test-results

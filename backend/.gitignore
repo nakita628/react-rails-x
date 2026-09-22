@@ -15,5 +15,5 @@
 # node_modules（prisma + hekireki: モデル・ER 図・seed の生成用）。
 /node_modules
 
-# hekireki seed が書き込みに使う Prisma Client。`pnpm generate` が書き直す。
-/generated/client
+# hekireki が書く生成物（seed 用スキーマと、seed が書き込みに使う Prisma Client）。`pnpm generate` が書き直す。
+/generated

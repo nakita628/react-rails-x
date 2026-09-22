@@ -67,7 +67,7 @@ flowchart LR
 Ruby 4 / Rails 8.1、Node 24、pnpm が必要です。
 
 ```sh
-make setup   # backend: bundle + pnpm install, prisma generate, prisma db push（dev と test）, seed / frontend: pnpm install
+make setup   # backend: bundle + pnpm install, prisma generate, prisma db push（dev と test）, seed / frontend: pnpm install, 型生成
 make dev     # Rails API（http://localhost:3000）と Vite（http://localhost:5173）を同時に起動
 ```
 
