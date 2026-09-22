@@ -1,4 +1,4 @@
 Rswag::Api.configure do |c|
-  # rspec-openapi が書く doc/openapi.yaml を /api-docs/openapi.yaml で配信する
-  c.openapi_root = Rails.root.join("doc").to_s
+  # rswag が書く swagger/v1/swagger.yaml を /api-docs/v1/swagger.yaml で配信する
+  c.openapi_root = Rails.root.join("swagger").to_s
 end

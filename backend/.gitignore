@@ -17,3 +17,6 @@
 
 # hekireki が書く生成物（seed 用スキーマと、seed が書き込みに使う Prisma Client）。`pnpm generate` が書き直す。
 /generated
+
+# RSpec が --only-failures のために覚えておく前回の結果。
+/spec/examples.txt

@@ -6,7 +6,7 @@
 
 ```
 frontend/   React 19 + Vite+（vp: dev / build / fmt / lint / check）+ TanStack Router / Query / Form + openapi-fetch + openapi-react-query
-backend/    Rails 8.1（API モード）+ SQLite + hekireki（schema.prisma → app/models, ER.png, seed）+ Minitest + rspec-openapi + RuboCop（rails-omakase）
+backend/    Rails 8.1（API モード）+ SQLite + hekireki（schema.prisma → app/models, ER.png, seed）+ RSpec + rswag + RuboCop（rails-omakase）
 ```
 
 ## 全体の流れ
@@ -19,7 +19,7 @@ flowchart LR
   SS --> SEED[backend/hekireki.config.ts: hekireki seed]
   P -->|prisma db push| DB[(storage/*.sqlite3)]
   SEED --> DB
-  S[backend/test/controllers/*_test.rb] -->|OPENAPI=1 bin/rails test: rspec-openapi| O[backend/doc/openapi.yaml]
+  S[backend/spec/requests/*_spec.rb] -->|bin/rails rswag:specs:swaggerize| O[backend/swagger/v1/swagger.yaml]
   O -->|pnpm generate: openapi-typescript| T[frontend/src/api/schema.d.ts]
   T --> C[frontend/src/lib/client.ts: openapi-fetch + openapi-react-query]
 ```
@@ -38,11 +38,12 @@ flowchart LR
 - **ブラウザからの確認は Playwright です。** `frontend/e2e/auth.spec.ts` がサインアップ・サインイン・
   サインアウトを実際のブラウザで通します。`playwright.config.ts` が e2e 専用の Rails（:3001、
   `storage/e2e.sqlite3`）と Vite（:5174）を起動するので、開発中のデータベースには触れません。
-- **テストは Rails 標準の Minitest と fixtures です。** `backend/test/fixtures/*.yml` のデータに対して、
-  `test/models` がバリデーションとメッセージを、`test/controllers` が全エンドポイントを実際に叩いて確かめます。
-  [rspec-openapi](https://github.com/exoego/rspec-openapi) の Minitest 対応（`openapi!`）が、その実際の
-  リクエストとレスポンスから `doc/openapi.yaml` を書き出します（`OPENAPI=1 bin/rails test`）。
-  レスポンスの本物の値が example になり、Swagger UI が http://localhost:3000/api-docs で表示します。
+- **request spec がそのまま OpenAPI です。** Rails でテストから OpenAPI を生成する定番の
+  [rswag](https://github.com/rswag/rswag) を使い、`backend/spec/requests` の spec が全エンドポイントを叩いて、
+  レスポンスを `spec/swagger_helper.rb` の components（example 付き）と照合します。
+  `bin/rails rswag:specs:swaggerize` が `swagger/v1/swagger.yaml` を書き出し、Swagger UI が
+  http://localhost:3000/api-docs で表示します。データは Rails の fixtures（`spec/fixtures/*.yml`）で、
+  `spec/models` がバリデーションとメッセージを確かめます。
 - **フロントの型はその文書から生成します。** [openapi-typescript](https://openapi-ts.dev/ja/introduction) が
   `src/api/schema.d.ts` を書き、[openapi-fetch](https://openapi-ts.dev/ja/openapi-fetch/) と
   [openapi-react-query](https://openapi-ts.dev/ja/openapi-react-query/) がそれを使うので、パス・パラメータ・
@@ -78,8 +79,8 @@ make dev     # Rails API（http://localhost:3000）と Vite（http://localhost:5
 
 1. データモデルやバリデーションが変わるなら `backend/schema.prisma` を編集し、`backend/` で
    `pnpm generate && pnpm db:push`（と `pnpm db:push:test`）。`app/models`、`ER.png`、seed 用スキーマが書き直されます。
-2. コントローラー（JSON の形は `app/controllers/concerns/representations.rb`）と、`backend/test/controllers` のテストを変えます。
-3. `OPENAPI=1 bin/rails test` でテストを実行しつつ `doc/openapi.yaml` を書き直します。
+2. コントローラー（JSON の形は `app/controllers/concerns/representations.rb`）と、`backend/spec/requests` の spec を変えます。
+3. `SWAGGER_DRY_RUN=0 bin/rails rswag:specs:swaggerize` で spec を実行しつつ `swagger/v1/swagger.yaml` を書き直します。
 4. `frontend/` で `pnpm generate` が `src/api/schema.d.ts` を書き直し、`pnpm check` が壊れた呼び出し側を全部示します。
 
 ## コマンド
@@ -89,7 +90,7 @@ make dev     # Rails API（http://localhost:3000）と Vite（http://localhost:5
 | | backend | frontend |
 | --- | --- | --- |
 | 起動 | `bin/dev` | `pnpm dev` |
-| テスト | `bin/rails test` | `pnpm check`（fmt + lint + 型検査）、`pnpm test:e2e`（Playwright。初回は `pnpm exec playwright install chromium`） |
+| テスト | `bin/rspec` | `pnpm check`（fmt + lint + 型検査）、`pnpm test:e2e`（Playwright。初回は `pnpm exec playwright install chromium`） |
 | フォーマット / lint | `bin/rubocop -a`（rubocop-rails-omakase） | `pnpm fmt`（oxfmt）/ `pnpm lint`（oxlint）、まとめて `pnpm check --fix` |
-| 生成 | `pnpm generate`（models, ER.png, seed 用スキーマ）, `OPENAPI=1 bin/rails test`（OpenAPI） | `pnpm generate`（型） |
+| 生成 | `pnpm generate`（models, ER.png, seed 用スキーマ）, `SWAGGER_DRY_RUN=0 bin/rails rswag:specs:swaggerize`（OpenAPI） | `pnpm generate`（型） |
 | データ | `pnpm seed`（hekireki seed）, `pnpm studio`（Hekireki Studio） | |

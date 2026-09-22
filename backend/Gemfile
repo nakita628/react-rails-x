@@ -28,11 +28,8 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
-end
 
-group :test do
-  # 統合テストが実際に受け取ったレスポンスから OpenAPI 文書を書き出す（OPENAPI=1 bin/rails test）
-  gem "rspec-openapi"
-  # minitest 6 で本体から分かれた stub / Mock（外部サイトの取得を差し替えるため）
-  gem "minitest-mock"
+  # request spec がそのまま OpenAPI 文書になる（rake rswag:specs:swaggerize は development で動く）
+  gem "rspec-rails"
+  gem "rswag-specs"
 end

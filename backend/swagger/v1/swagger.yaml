@@ -1,0 +1,1087 @@
+---
+openapi: 3.0.1
+info:
+  title: x API
+  version: 1.0.0
+  description: 学習用の X（Twitter）クローン。サインインでセッション cookie が発行され、他の操作はそれを必要とする。
+servers:
+- url: http://localhost:3000
+tags:
+- name: sessions
+  description: サインインとサインアウト
+- name: users
+  description: サインアップ、プロフィール、フォロー
+- name: profile
+  description: サインイン中ユーザー自身のアカウント
+- name: posts
+  description: 投稿、いいね、リポスト、ブックマーク、コメント
+- name: notifications
+  description: 通知
+- name: media
+  description: アップロード画像
+- name: link_preview
+  description: リンクのプレビュー
+paths:
+  "/api/link_preview":
+    get:
+      summary: URL の Open Graph メタデータ
+      tags:
+      - link_preview
+      operationId: readLinkPreview
+      description: ベストエフォート。取得できないページは空のメタデータになる。http(s) 以外の URL と内部アドレスは 400。
+      parameters:
+      - name: url
+        in: query
+        required: true
+        schema:
+          type: string
+        example: https://rubyonrails.org/
+      responses:
+        '200':
+          description: メタデータ
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/LinkPreview"
+        '400':
+          description: http(s) 以外の URL、または内部アドレス
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/media/{prefix}/{filename}":
+    parameters:
+    - name: prefix
+      in: path
+      schema:
+        type: string
+        enum:
+        - posts
+        - avatars
+        - covers
+      required: true
+    - name: filename
+      in: path
+      schema:
+        type: string
+      example: po9a2b3c4d5e6f7g8h9i0j1k.png
+      required: true
+    get:
+      summary: アップロードした画像
+      tags:
+      - media
+      operationId: readMedia
+      description: 投稿の画像、プロフィール画像、カバー画像を、API が返した URL で配信する。サインインは不要。
+      responses:
+        '200':
+          description: 画像
+        '404':
+          description: 存在しない画像
+  "/api/notifications":
+    get:
+      summary: 自分の通知
+      tags:
+      - notifications
+      operationId: readNotifications
+      description: 新しい順、1 ページ 20 件。
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: rows
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: 通知の配列
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Notification"
+        '422':
+          description: クエリパラメータが契約に合わない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    patch:
+      summary: すべて既読にする
+      tags:
+      - notifications
+      operationId: updateNotificationsRead
+      responses:
+        '204':
+          description: 既読にした
+    delete:
+      summary: すべて削除する
+      tags:
+      - notifications
+      operationId: deleteNotifications
+      responses:
+        '204':
+          description: 削除した
+  "/api/posts":
+    get:
+      summary: 投稿一覧
+      tags:
+      - posts
+      operationId: readPosts
+      description: |
+        一覧はすべてこのエンドポイントで、クエリパラメータで切り替える。
+        feed=all（既定）は全体タイムライン、feed=following はフォローしている人の投稿とリポスト、
+        feed=bookmarks は自分のブックマーク、author={username} はその人の投稿とリポスト、
+        likedBy={username} はその人がいいねした投稿。新しい順、1 ページ 20 件。
+      parameters:
+      - name: feed
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - all
+          - following
+          - bookmarks
+        example: following
+      - name: author
+        in: query
+        required: false
+        schema:
+          type: string
+        example: alice
+      - name: likedBy
+        in: query
+        required: false
+        schema:
+          type: string
+        example: bob
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: rows
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      responses:
+        '200':
+          description: 投稿の配列
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/Post"
+        '422':
+          description: クエリパラメータが契約に合わない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '401':
+          description: サインインしていない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    post:
+      summary: 投稿を作成する
+      tags:
+      - posts
+      operationId: createPost
+      description: text か img のどちらかは必須。
+      parameters: []
+      responses:
+        '201':
+          description: 作成した投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '422':
+          description: テキストも画像もない、または画像ではない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/CreatePostRequest"
+  "/api/posts/{id}":
+    parameters:
+    - name: id
+      in: path
+      schema:
+        type: integer
+      example: 42
+      required: true
+    get:
+      summary: 投稿を 1 件取得する
+      tags:
+      - posts
+      operationId: readPost
+      responses:
+        '200':
+          description: 投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '404':
+          description: 存在しない投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    delete:
+      summary: 投稿を削除する
+      tags:
+      - posts
+      operationId: deletePost
+      description: 投稿者だけができる。
+      responses:
+        '204':
+          description: 削除した
+        '403':
+          description: 他人の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/posts/{post_id}/like":
+    parameters:
+    - name: post_id
+      in: path
+      schema:
+        type: integer
+      example: 42
+      required: true
+    post:
+      summary: いいねする
+      tags:
+      - posts
+      operationId: createLike
+      description: 冪等。初回だけ投稿者に通知する。
+      responses:
+        '200':
+          description: いいねした後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '404':
+          description: 存在しない投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    delete:
+      summary: いいねを取り消す
+      tags:
+      - posts
+      operationId: deleteLike
+      description: 冪等。
+      responses:
+        '200':
+          description: いいねを取り消した後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+  "/api/posts/{post_id}/repost":
+    parameters:
+    - name: post_id
+      in: path
+      schema:
+        type: integer
+      example: 42
+      required: true
+    post:
+      summary: リポストする
+      tags:
+      - posts
+      operationId: createRepost
+      description: 冪等。
+      responses:
+        '200':
+          description: リポストした後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '404':
+          description: 存在しない投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    delete:
+      summary: リポストを取り消す
+      tags:
+      - posts
+      operationId: deleteRepost
+      description: 冪等。
+      responses:
+        '200':
+          description: リポストを取り消した後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+  "/api/posts/{post_id}/bookmark":
+    parameters:
+    - name: post_id
+      in: path
+      schema:
+        type: integer
+      example: 42
+      required: true
+    post:
+      summary: ブックマークする
+      tags:
+      - posts
+      operationId: createBookmark
+      description: 冪等。非公開なので通知しない。
+      responses:
+        '200':
+          description: ブックマークした後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '404':
+          description: 存在しない投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    delete:
+      summary: ブックマークを取り消す
+      tags:
+      - posts
+      operationId: deleteBookmark
+      description: 冪等。
+      responses:
+        '200':
+          description: ブックマークを取り消した後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+  "/api/posts/{post_id}/comments":
+    parameters:
+    - name: post_id
+      in: path
+      schema:
+        type: integer
+      example: 42
+      required: true
+    post:
+      summary: コメントする
+      tags:
+      - posts
+      operationId: createComment
+      parameters: []
+      responses:
+        '201':
+          description: コメントが付いた後の投稿
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Post"
+        '422':
+          description: 空か長すぎる
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateCommentRequest"
+  "/api/profile":
+    get:
+      summary: サインイン中のユーザー自身
+      tags:
+      - profile
+      operationId: readProfile
+      responses:
+        '200':
+          description: サインイン中のユーザー
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AuthUser"
+        '401':
+          description: サインインしていない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    patch:
+      summary: プロフィールを更新する
+      tags:
+      - profile
+      operationId: updateProfile
+      description: 部分更新。画像はファイルで送り、パスワード変更は currentPassword と newPassword を一緒に送る。
+      parameters: []
+      responses:
+        '200':
+          description: 更新後のユーザー
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AuthUser"
+        '401':
+          description: 現在のパスワードが違う
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '422':
+          description: 検証に失敗した
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              "$ref": "#/components/schemas/UpdateProfileRequest"
+    delete:
+      summary: アカウントを削除する
+      tags:
+      - profile
+      operationId: deleteProfile
+      description: 取り消せない。投稿・いいね・フォロー・画像も一緒に消え、セッションが終わる。
+      responses:
+        '204':
+          description: 削除した
+        '401':
+          description: サインインしていない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/session":
+    post:
+      summary: サインインする
+      tags:
+      - sessions
+      operationId: createSession
+      description: ユーザー名とパスワードでサインインし、セッション cookie を発行する。
+      parameters: []
+      responses:
+        '200':
+          description: サインイン済みのユーザー
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AuthUser"
+        '401':
+          description: ユーザー名かパスワードが違う
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateSessionRequest"
+    delete:
+      summary: サインアウトする
+      tags:
+      - sessions
+      operationId: deleteSession
+      responses:
+        '204':
+          description: セッションが終わった
+        '401':
+          description: サインインしていない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/users":
+    post:
+      summary: サインアップする
+      tags:
+      - users
+      operationId: createUser
+      description: ユーザーを作り、そのままサインイン状態にする。
+      parameters: []
+      responses:
+        '201':
+          description: 作成したユーザー
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/AuthUser"
+        '409':
+          description: ユーザー名かメールアドレスが使われている
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+        '422':
+          description: 検証に失敗した
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/CreateUserRequest"
+  "/api/users/suggested":
+    get:
+      summary: おすすめユーザー
+      tags:
+      - users
+      operationId: readSuggestedUsers
+      description: 自分と、すでにフォローしている人を除いた最大 10 人。順不同。
+      responses:
+        '200':
+          description: おすすめユーザー
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  "$ref": "#/components/schemas/UserProfile"
+        '401':
+          description: サインインしていない
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/users/{username}":
+    parameters:
+    - name: username
+      in: path
+      schema:
+        type: string
+      example: bob
+      required: true
+    get:
+      summary: プロフィールを取得する
+      tags:
+      - users
+      operationId: readUser
+      responses:
+        '200':
+          description: プロフィール
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserProfile"
+        '404':
+          description: 存在しないユーザー名
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+  "/api/users/{username}/follow":
+    parameters:
+    - name: username
+      in: path
+      schema:
+        type: string
+      example: bob
+      required: true
+    post:
+      summary: フォローする
+      tags:
+      - users
+      operationId: createFollow
+      description: 冪等。初回だけ相手に通知する。
+      responses:
+        '200':
+          description: フォローした相手のプロフィール
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserProfile"
+        '422':
+          description: 自分自身をフォローしようとした
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/Problem"
+    delete:
+      summary: フォローを外す
+      tags:
+      - users
+      operationId: deleteFollow
+      description: 冪等。
+      responses:
+        '200':
+          description: フォローを外した相手のプロフィール
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/UserProfile"
+components:
+  schemas:
+    UserSummary:
+      type: object
+      description: 投稿・コメント・通知に埋め込む簡易ユーザー
+      example:
+        id: 2
+        username: bob
+        fullName: Bob
+        profileImg:
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        profileImg:
+          type: string
+          nullable: true
+          description: プロフィール画像の URL（未設定なら null）
+      required:
+      - id
+      - username
+      - fullName
+      - profileImg
+    UserProfile:
+      type: object
+      description: プロフィール（他人から見た形）
+      example:
+        id: 1
+        username: alice
+        fullName: Alice
+        profileImg: "/api/media/avatars/kx9a2b3c4d5e6f7g8h9i0j1k.png"
+        coverImg: "/api/media/covers/al9a2b3c4d5e6f7g8h9i0j1k.png"
+        bio: I like the web and coffee
+        link: https://example.com
+        followersCount: 128
+        followingCount: 87
+        isFollowing: false
+        createdAt: '2026-01-01T00:00:00.000Z'
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        profileImg:
+          type: string
+          nullable: true
+        coverImg:
+          type: string
+          nullable: true
+        bio:
+          type: string
+        link:
+          type: string
+        followersCount:
+          type: integer
+        followingCount:
+          type: integer
+        isFollowing:
+          type: boolean
+          description: サインイン中のユーザーがこの人をフォローしているか
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - username
+      - fullName
+      - profileImg
+      - coverImg
+      - bio
+      - link
+      - followersCount
+      - followingCount
+      - isFollowing
+      - createdAt
+    AuthUser:
+      type: object
+      description: サインイン中のユーザー自身（本人にだけ返す）
+      example:
+        id: 1
+        username: alice
+        fullName: Alice
+        profileImg: "/api/media/avatars/kx9a2b3c4d5e6f7g8h9i0j1k.png"
+        emailAddress: alice@example.com
+        coverImg:
+        bio: I like the web and coffee
+        link: https://example.com
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        fullName:
+          type: string
+        emailAddress:
+          type: string
+          format: email
+        profileImg:
+          type: string
+          nullable: true
+        coverImg:
+          type: string
+          nullable: true
+        bio:
+          type: string
+        link:
+          type: string
+      required:
+      - id
+      - username
+      - fullName
+      - emailAddress
+      - profileImg
+      - coverImg
+      - bio
+      - link
+    Comment:
+      type: object
+      example:
+        id: 7
+        text: Nice post!
+        author:
+          id: 2
+          username: bob
+          fullName: Bob
+          profileImg:
+        createdAt: '2026-01-01T00:05:00.000Z'
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+        author:
+          "$ref": "#/components/schemas/UserSummary"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - text
+      - author
+      - createdAt
+    Post:
+      type: object
+      example:
+        id: 42
+        text: My first post! https://rubyonrails.org/
+        img: "/api/media/posts/po9a2b3c4d5e6f7g8h9i0j1k.png"
+        author:
+          id: 1
+          username: alice
+          fullName: Alice
+          profileImg: "/api/media/avatars/kx9a2b3c4d5e6f7g8h9i0j1k.png"
+        likeCount: 12
+        liked: false
+        repostCount: 3
+        reposted: false
+        bookmarked: true
+        repostedBy:
+          id: 2
+          username: bob
+          fullName: Bob
+          profileImg:
+        comments:
+        - id: 7
+          text: Nice post!
+          author:
+            id: 2
+            username: bob
+            fullName: Bob
+            profileImg:
+          createdAt: '2026-01-01T00:05:00.000Z'
+        createdAt: '2026-01-01T00:00:00.000Z'
+        updatedAt: '2026-01-01T00:00:00.000Z'
+      properties:
+        id:
+          type: integer
+        text:
+          type: string
+          nullable: true
+        img:
+          type: string
+          nullable: true
+          description: 添付画像の URL
+        author:
+          "$ref": "#/components/schemas/UserSummary"
+        likeCount:
+          type: integer
+        liked:
+          type: boolean
+        repostCount:
+          type: integer
+        reposted:
+          type: boolean
+        bookmarked:
+          type: boolean
+        repostedBy:
+          "$ref": "#/components/schemas/UserSummary"
+          description: このフィード項目をリポストしたユーザー（リポストのときだけ付く）
+        comments:
+          type: array
+          items:
+            "$ref": "#/components/schemas/Comment"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - text
+      - img
+      - author
+      - likeCount
+      - liked
+      - repostCount
+      - reposted
+      - bookmarked
+      - comments
+      - createdAt
+      - updatedAt
+    Notification:
+      type: object
+      example:
+        id: 3
+        type: follow
+        read: false
+        from:
+          id: 2
+          username: bob
+          fullName: Bob
+          profileImg:
+        createdAt: '2026-01-01T00:00:00.000Z'
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum:
+          - follow
+          - like
+        read:
+          type: boolean
+        from:
+          "$ref": "#/components/schemas/UserSummary"
+        createdAt:
+          type: string
+          format: date-time
+      required:
+      - id
+      - type
+      - read
+      - from
+      - createdAt
+    LinkPreview:
+      type: object
+      description: URL の Open Graph メタデータ。取れなかった項目は null。
+      example:
+        url: https://rubyonrails.org/
+        title: Ruby on Rails
+        description: A web-app framework that includes everything needed to create
+          database-backed web applications.
+        image: https://rubyonrails.org/assets/images/opengraph.png
+        siteName:
+      properties:
+        url:
+          type: string
+        title:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        siteName:
+          type: string
+          nullable: true
+      required:
+      - url
+      - title
+      - description
+      - image
+      - siteName
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details（application/problem+json）
+      example:
+        type: "/problems/unprocessable-content"
+        title: Unprocessable Content
+        status: 422
+        detail: The request failed validation. See `errors` for the offending fields.
+        instance: "/api/users"
+        errors:
+        - field: username
+          message: Username must be 15 characters or fewer and contain only letters,
+            digits, and underscores
+      properties:
+        type:
+          type: string
+          example: "/problems/not-found"
+        title:
+          type: string
+          example: Not Found
+        status:
+          type: integer
+          example: 404
+        detail:
+          type: string
+        instance:
+          type: string
+          description: リクエストのパス
+        errors:
+          type: array
+          description: 検証に失敗したフィールドごとに 1 件（422 のみ）。message はそのまま表示できる文
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+            required:
+            - field
+            - message
+          example:
+          - field: username
+            message: Username must be 15 characters or fewer and contain only letters,
+              digits, and underscores
+      required:
+      - type
+      - title
+      - status
+      - detail
+      - instance
+    CreateSessionRequest:
+      type: object
+      example:
+        username: alice
+        password: secret123
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+      - username
+      - password
+    CreateUserRequest:
+      type: object
+      example:
+        username: alice
+        fullName: Alice
+        emailAddress: alice@example.com
+        password: secret123
+      properties:
+        username:
+          type: string
+          pattern: "^[a-zA-Z0-9_]{1,15}$"
+          description: 15 文字以内の英数字とアンダースコア。一意
+        fullName:
+          type: string
+          minLength: 1
+        emailAddress:
+          type: string
+          format: email
+          description: 一意。前後の空白を除き小文字にして保存する
+        password:
+          type: string
+          minLength: 6
+          maxLength: 72
+      required:
+      - username
+      - fullName
+      - emailAddress
+      - password
+    UpdateProfileRequest:
+      type: object
+      description: すべて任意。パスワード変更は currentPassword と newPassword を一緒に送る。
+      example:
+        fullName: Alice B
+        bio: I like the web and coffee
+        link: https://example.com
+        currentPassword: secret123
+        newPassword: secret456
+      properties:
+        fullName:
+          type: string
+        bio:
+          type: string
+        link:
+          type: string
+          maxLength: 100
+          pattern: "^(https?://\\S+)?$"
+          description: http:// か https:// で始まる URL、または空
+        profileImg:
+          type: string
+          format: binary
+          description: プロフィール画像（PNG / JPEG / WebP / GIF、5MB 以下）
+        coverImg:
+          type: string
+          format: binary
+          description: カバー画像（PNG / JPEG / WebP / GIF、5MB 以下）
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 72
+    CreatePostRequest:
+      type: object
+      description: text か img のどちらかは必須。img は PNG / JPEG / WebP / GIF で 5MB 以下（それ以外は
+        422）。
+      example:
+        text: My first post!
+      properties:
+        text:
+          type: string
+        img:
+          type: string
+          format: binary
+          description: 添付画像（PNG / JPEG / WebP / GIF、5MB 以下）
+    CreateCommentRequest:
+      type: object
+      example:
+        text: Nice post!
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 280
+          description: 前後の空白を除いて 1〜280 文字
+      required:
+      - text

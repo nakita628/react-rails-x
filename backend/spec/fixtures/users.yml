@@ -1,4 +1,4 @@
-# 全員のパスワードは secret123（test_helper の PASSWORD）
+# 全員のパスワードは secret123（spec/support の PASSWORD）
 alice:
   username: alice
   full_name: Alice

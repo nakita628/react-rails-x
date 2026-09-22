@@ -4,7 +4,7 @@ dist
 *.local
 
 # 生成物。routeTree.gen.ts は @tanstack/router-plugin が dev/build で、
-# src/api/schema.d.ts は `pnpm generate` が backend/doc/openapi.yaml から書く。
+# src/api/schema.d.ts は `pnpm generate` が backend/swagger/v1/swagger.yaml から書く。
 src/routeTree.gen.ts
 src/api/schema.d.ts
 

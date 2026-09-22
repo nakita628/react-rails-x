@@ -16,7 +16,7 @@ setup:
 	cd frontend && pnpm install && pnpm generate
 
 test:
-	cd backend && bin/rails test && bin/rubocop
+	cd backend && bin/rspec && bin/rubocop
 	cd frontend && pnpm check
 
 # ブラウザで実際にサインイン / サインアウトする Playwright のテスト。e2e 専用の Rails（:3001）と Vite（:5174）を自動で起動する。
@@ -30,5 +30,5 @@ format:
 
 # 生成物をすべて作り直す: app/models と ER.png、OpenAPI 文書、フロントの型。
 generate:
-	cd backend && pnpm generate && OPENAPI=1 bin/rails test
+	cd backend && pnpm generate && SWAGGER_DRY_RUN=0 bin/rails rswag:specs:swaggerize
 	cd frontend && pnpm generate
