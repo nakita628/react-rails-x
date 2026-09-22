@@ -1,0 +1,2811 @@
+---
+openapi: 3.1.0
+info:
+  title: x API
+  version: 1.0.0
+  description: 学習用の X（Twitter）クローン。サインインでセッション cookie が発行され、他の操作はそれを必要とする。
+servers:
+- url: http://localhost:3000
+paths:
+  "/api/link_preview":
+    get:
+      summary: show
+      tags:
+      - link_previews
+      parameters:
+      - name: url
+        in: query
+        required: false
+        schema:
+          type: string
+        example: https://example.com/plain
+      responses:
+        '200':
+          description: description だけのページ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                  title:
+                    type:
+                    - string
+                    - 'null'
+                  description:
+                    type:
+                    - string
+                    - 'null'
+                  image:
+                    type:
+                    - string
+                    - 'null'
+                  siteName:
+                    type:
+                    - string
+                    - 'null'
+                required:
+                - url
+                - title
+                - description
+                - image
+                - siteName
+              example:
+                url: https://example.com/plain
+                title:
+                description: Just a description
+                image:
+                siteName:
+        '400':
+          description: 内部アドレスは 400
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/bad-request"
+                title: Bad Request
+                status: 400
+                detail: Internal destinations are not allowed
+                instance: "/api/link_preview"
+  "/api/media/{prefix}/{filename}":
+    get:
+      summary: show
+      tags:
+      - media
+      parameters:
+      - name: filename
+        in: path
+        required: true
+        schema:
+          type: string
+        example: cpeku3elamwpowahruk8ipw2.png
+      - name: prefix
+        in: path
+        required: true
+        schema:
+          type: string
+        example: posts
+      responses:
+        '200':
+          description: アップロードした画像はサインインなしで配信される
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: 存在しない画像は 404
+  "/api/notifications":
+    delete:
+      summary: destroy
+      tags:
+      - notifications
+      responses:
+        '204':
+          description: すべて削除する
+    get:
+      summary: index
+      tags:
+      - notifications
+      responses:
+        '200':
+          description: 自分の通知が新しい順に返る
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    type:
+                      type: string
+                    read:
+                      type: boolean
+                    from:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        username:
+                          type: string
+                        fullName:
+                          type: string
+                        profileImg:
+                          type: string
+                      required:
+                      - id
+                      - username
+                      - fullName
+                      - profileImg
+                    createdAt:
+                      type: string
+                      format: date-time
+                  required:
+                  - id
+                  - type
+                  - read
+                  - from
+                  - createdAt
+              example:
+              - id: 729887420
+                type: like
+                read: false
+                from:
+                  id: 902541635
+                  username: bob
+                  fullName: Bob
+                  profileImg: "/api/media/avatars/fixture.png"
+                createdAt: '2026-01-02T01:00:00.000Z'
+              - id: 698582621
+                type: follow
+                read: false
+                from:
+                  id: 708742340
+                  username: carol
+                  fullName: Carol
+                  profileImg: "/api/media/avatars/fixture.png"
+                createdAt: '2026-01-01T01:00:00.000Z'
+        '422':
+          description: page は 1 以上
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/notifications"
+                errors:
+                - field: page
+                  message: Page must be an integer of 1 or more
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: string
+        example: first
+    patch:
+      summary: update
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties: {}
+            example: {}
+      responses:
+        '204':
+          description: すべて既読にする
+  "/api/posts":
+    get:
+      summary: index
+      tags:
+      - posts
+      parameters:
+      - name: author
+        in: query
+        required: false
+        schema:
+          type: string
+        example: alice
+      - name: feed
+        in: query
+        required: false
+        schema:
+          type: string
+        example: following
+      - name: likedBy
+        in: query
+        required: false
+        schema:
+          type: string
+        example: bob
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 2
+      - name: rows
+        in: query
+        required: false
+        schema:
+          type: integer
+        example: 0
+      responses:
+        '200':
+          description: 投稿者を指定した一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    text:
+                      type:
+                      - string
+                      - 'null'
+                    img:
+                      type:
+                      - string
+                      - 'null'
+                    author:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        username:
+                          type: string
+                        fullName:
+                          type: string
+                        profileImg:
+                          type:
+                          - string
+                          - 'null'
+                      required:
+                      - id
+                      - username
+                      - fullName
+                      - profileImg
+                    likeCount:
+                      type: integer
+                    liked:
+                      type: boolean
+                    repostCount:
+                      type: integer
+                    reposted:
+                      type: boolean
+                    bookmarked:
+                      type: boolean
+                    comments:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                          text:
+                            type: string
+                          author:
+                            type: object
+                            properties:
+                              id:
+                                type: integer
+                              username:
+                                type: string
+                              fullName:
+                                type: string
+                              profileImg:
+                                type: string
+                            required:
+                            - id
+                            - username
+                            - fullName
+                            - profileImg
+                          createdAt:
+                            type: string
+                            format: date-time
+                        required:
+                        - id
+                        - text
+                        - author
+                        - createdAt
+                    createdAt:
+                      type: string
+                      format: date-time
+                    updatedAt:
+                      type: string
+                      format: date-time
+                    repostedBy:
+                      type:
+                      - object
+                      - 'null'
+                      properties:
+                        id:
+                          type: integer
+                        username:
+                          type: string
+                        fullName:
+                          type: string
+                        profileImg:
+                          type: string
+                      required:
+                      - id
+                      - username
+                      - fullName
+                      - profileImg
+                  required:
+                  - id
+                  - text
+                  - img
+                  - author
+                  - likeCount
+                  - liked
+                  - repostCount
+                  - reposted
+                  - bookmarked
+                  - comments
+                  - createdAt
+                  - updatedAt
+              example:
+              - id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: true
+                repostCount: 1
+                reposted: false
+                bookmarked: true
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+        '401':
+          description: 一覧にはサインインが要る
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Sign-in required
+                instance: "/api/posts"
+        '422':
+          description: feed は決まった値のどれか
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/posts"
+                errors:
+                - field: feed
+                  message: Feed must be one of all, following, bookmarks
+    post:
+      summary: create
+      tags:
+      - posts
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+              - text
+            example:
+              text: just words
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                img:
+                  type: string
+                  format: binary
+              required:
+              - img
+            example:
+              text: with an image
+              img: pixel.png
+      responses:
+        '201':
+          description: 画像だけで投稿する
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type:
+                    - string
+                    - 'null'
+                  img:
+                    type:
+                    - string
+                    - 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: string
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 833395933
+                text:
+                img: "/api/media/posts/jpctttvmx5kmafzns2fb3hkr.png"
+                author:
+                  id: 902541635
+                  username: bob
+                  fullName: Bob
+                  profileImg: "/api/media/avatars/fixture.png"
+                likeCount: 0
+                liked: false
+                repostCount: 0
+                reposted: false
+                bookmarked: false
+                comments: []
+                createdAt: '2026-09-22T13:12:00.820Z'
+                updatedAt: '2026-09-22T13:12:00.820Z'
+        '422':
+          description: 投稿にはテキストか画像が要る
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/posts"
+                errors:
+                - field: text
+                  message: Text or an image is required
+  "/api/posts/{id}":
+    delete:
+      summary: destroy
+      tags:
+      - posts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 222676662
+      responses:
+        '204':
+          description: 投稿者は自分の投稿を削除できる
+        '403':
+          description: 他人の投稿は削除できない
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/forbidden"
+                title: Forbidden
+                status: 403
+                detail: You can only delete your own posts
+                instance: "/api/posts/169311211"
+    get:
+      summary: show
+      tags:
+      - posts
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 0
+      responses:
+        '200':
+          description: 投稿を 1 件取得する
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: true
+                repostCount: 1
+                reposted: false
+                bookmarked: true
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+        '404':
+          description: 存在しない投稿は 404
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/not-found"
+                title: Not Found
+                status: 404
+                detail: Resource not found
+                instance: "/api/posts/0"
+  "/api/posts/{post_id}/bookmark":
+    delete:
+      summary: destroy
+      tags:
+      - bookmarks
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      responses:
+        '200':
+          description: ブックマークを外す
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: true
+                repostCount: 1
+                reposted: false
+                bookmarked: false
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+    post:
+      summary: create
+      tags:
+      - bookmarks
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 222676662
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties: {}
+            example: {}
+      responses:
+        '200':
+          description: 投稿をブックマークする
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: string
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items: {}
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 222676662
+                text: hello from bob
+                img:
+                author:
+                  id: 902541635
+                  username: bob
+                  fullName: Bob
+                  profileImg: "/api/media/avatars/fixture.png"
+                likeCount: 0
+                liked: false
+                repostCount: 0
+                reposted: false
+                bookmarked: true
+                comments: []
+                createdAt: '2026-01-03T00:00:00.000Z'
+                updatedAt: '2026-01-03T00:00:00.000Z'
+  "/api/posts/{post_id}/comments":
+    post:
+      summary: create
+      tags:
+      - comments
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      responses:
+        '201':
+          description: コメントすると投稿とそのコメント一覧が返る
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: false
+                repostCount: 1
+                reposted: true
+                bookmarked: false
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                - id: 632426791
+                  text: Me too!
+                  author:
+                    id: 708742340
+                    username: carol
+                    fullName: Carol
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-09-22T13:12:01.114Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+        '422':
+          description: コメントは 1〜280 文字
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/posts/169311211/comments"
+                errors:
+                - field: text
+                  message: Comment must be 280 characters or fewer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+              - text
+            example:
+              text: "  Me too!  "
+  "/api/posts/{post_id}/like":
+    delete:
+      summary: destroy
+      tags:
+      - likes
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      responses:
+        '200':
+          description: いいねを取り消す
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 0
+                liked: false
+                repostCount: 1
+                reposted: false
+                bookmarked: true
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+    post:
+      summary: create
+      tags:
+      - likes
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      responses:
+        '200':
+          description: いいねすると初回だけ投稿者に通知される
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 2
+                liked: true
+                repostCount: 1
+                reposted: true
+                bookmarked: false
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+        '404':
+          description: 存在しない投稿へのいいねは 404
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/not-found"
+                title: Not Found
+                status: 404
+                detail: Resource not found
+                instance: "/api/posts/0/like"
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties: {}
+            example: {}
+  "/api/posts/{post_id}/repost":
+    delete:
+      summary: destroy
+      tags:
+      - reposts
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      responses:
+        '200':
+          description: リポストを取り消す
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: false
+                repostCount: 0
+                reposted: false
+                bookmarked: false
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+    post:
+      summary: create
+      tags:
+      - reposts
+      parameters:
+      - name: post_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        example: 169311211
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties: {}
+            example: {}
+      responses:
+        '200':
+          description: 投稿をリポストする
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  text:
+                    type: string
+                  img:
+                    type: 'null'
+                  author:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      username:
+                        type: string
+                      fullName:
+                        type: string
+                      profileImg:
+                        type: 'null'
+                    required:
+                    - id
+                    - username
+                    - fullName
+                    - profileImg
+                  likeCount:
+                    type: integer
+                  liked:
+                    type: boolean
+                  repostCount:
+                    type: integer
+                  reposted:
+                    type: boolean
+                  bookmarked:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: integer
+                        text:
+                          type: string
+                        author:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                            username:
+                              type: string
+                            fullName:
+                              type: string
+                            profileImg:
+                              type: string
+                          required:
+                          - id
+                          - username
+                          - fullName
+                          - profileImg
+                        createdAt:
+                          type: string
+                          format: date-time
+                      required:
+                      - id
+                      - text
+                      - author
+                      - createdAt
+                  createdAt:
+                    type: string
+                    format: date-time
+                  updatedAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - text
+                - img
+                - author
+                - likeCount
+                - liked
+                - repostCount
+                - reposted
+                - bookmarked
+                - comments
+                - createdAt
+                - updatedAt
+              example:
+                id: 169311211
+                text: hello from alice
+                img:
+                author:
+                  id: 663665735
+                  username: alice
+                  fullName: Alice
+                  profileImg:
+                likeCount: 1
+                liked: true
+                repostCount: 2
+                reposted: true
+                bookmarked: true
+                comments:
+                - id: 632426790
+                  text: Nice post!
+                  author:
+                    id: 902541635
+                    username: bob
+                    fullName: Bob
+                    profileImg: "/api/media/avatars/fixture.png"
+                  createdAt: '2026-01-02T02:00:00.000Z'
+                createdAt: '2026-01-02T00:00:00.000Z'
+                updatedAt: '2026-01-02T00:00:00.000Z'
+  "/api/profile":
+    delete:
+      summary: destroy
+      tags:
+      - profiles
+      responses:
+        '401':
+          description: アカウント削除にはサインインが要る
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Sign-in required
+                instance: "/api/profile"
+    get:
+      summary: show
+      tags:
+      - sessions
+      responses:
+        '200':
+          description: プロフィールにはプロフィール画像とカバー画像の URL が載る
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type:
+                    - string
+                    - 'null'
+                  emailAddress:
+                    type: string
+                  coverImg:
+                    type:
+                    - string
+                    - 'null'
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - emailAddress
+                - coverImg
+                - bio
+                - link
+              example:
+                id: 902541635
+                username: bob
+                fullName: Bob
+                profileImg: "/api/media/avatars/fixture.png"
+                emailAddress: bob@example.com
+                coverImg: "/api/media/covers/fixture.png"
+                bio: ''
+                link: ''
+        '401':
+          description: サインアウトするとセッションが終わる
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Sign-in required
+                instance: "/api/profile"
+    patch:
+      summary: update
+      tags:
+      - profiles
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                fullName:
+                  type: string
+            example:
+              currentPassword: secret123
+              newPassword: secret456
+              fullName: Alice B
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                bio:
+                  type: string
+                link:
+                  type: string
+                profileImg:
+                  type: string
+                  format: binary
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                coverImg:
+                  type: string
+                  format: binary
+              required:
+              - profileImg
+            example:
+              fullName: Alice B
+              bio: hi
+              link: https://example.com
+              profileImg: pixel.png
+              currentPassword: secret123
+              newPassword: secret456
+              coverImg: pixel.png
+      responses:
+        '200':
+          description: 画像だけ更新する
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type:
+                    - string
+                    - 'null'
+                  emailAddress:
+                    type: string
+                  coverImg:
+                    type:
+                    - string
+                    - 'null'
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - emailAddress
+                - coverImg
+                - bio
+                - link
+              example:
+                id: 663665735
+                username: alice
+                fullName: Alice
+                profileImg: "/api/media/avatars/iazmcm8shhmoni4ff4y6llgo.png"
+                emailAddress: alice@example.com
+                coverImg: "/api/media/covers/akkxyalmxdmephvxlmdyd3eu.png"
+                bio: Hi, I'm Alice.
+                link: ''
+        '401':
+          description: パスワード変更には現在のパスワードが要る
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Current password is incorrect
+                instance: "/api/profile"
+        '422':
+          description: 不正な項目で更新すると項目ごとに列挙される
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/profile"
+                errors:
+                - field: link
+                  message: Link must be a URL starting with http:// or https://
+                - field: password
+                  message: Password must be 72 characters or fewer
+                - field: coverImg
+                  message: Cover image must be PNG, JPEG, WebP, or GIF
+  "/api/session":
+    delete:
+      summary: destroy
+      tags:
+      - sessions
+      responses:
+        '401':
+          description: セッションなしのサインアウトは 401
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Sign-in required
+                instance: "/api/session"
+    post:
+      summary: create
+      tags:
+      - sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+              - username
+              - password
+            example:
+              username: bob
+              password: secret123
+      responses:
+        '200':
+          description: プロフィール画像のあるユーザーでサインインする
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type:
+                    - string
+                    - 'null'
+                  emailAddress:
+                    type: string
+                  coverImg:
+                    type:
+                    - string
+                    - 'null'
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - emailAddress
+                - coverImg
+                - bio
+                - link
+              example:
+                id: 902541635
+                username: bob
+                fullName: Bob
+                profileImg: "/api/media/avatars/fixture.png"
+                emailAddress: bob@example.com
+                coverImg: "/api/media/covers/fixture.png"
+                bio: ''
+                link: ''
+        '401':
+          description: 間違ったパスワードでは 401
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Try another username or password.
+                instance: "/api/session"
+  "/api/users":
+    post:
+      summary: create
+      tags:
+      - users
+      responses:
+        '201':
+          description: サインアップするとユーザーが作られ、サインイン状態になる
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type: 'null'
+                  emailAddress:
+                    type: string
+                  coverImg:
+                    type: 'null'
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - emailAddress
+                - coverImg
+                - bio
+                - link
+              example:
+                id: 902541636
+                username: dave
+                fullName: Dave
+                profileImg:
+                emailAddress: dave@example.com
+                coverImg:
+                bio: ''
+                link: ''
+        '409':
+          description: 使われているユーザー名やメールアドレスでのサインアップは 409
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/conflict"
+                title: Conflict
+                status: 409
+                detail: That username or email address is already taken
+                instance: "/api/users"
+        '422':
+          description: 不正な項目でサインアップすると項目ごとに列挙される
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/users"
+                errors:
+                - field: username
+                  message: Username must be 15 characters or fewer and contain only
+                    letters, digits, and underscores
+                - field: fullName
+                  message: Full name can't be blank
+                - field: emailAddress
+                  message: Email address must be a valid email address
+                - field: password
+                  message: Password must be at least 6 characters
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                fullName:
+                  type: string
+                emailAddress:
+                  type: string
+                password:
+                  type: string
+              required:
+              - username
+              - fullName
+              - emailAddress
+              - password
+            example:
+              username: dave
+              fullName: Dave
+              emailAddress: Dave@Example.com
+              password: secret123
+  "/api/users/suggested":
+    get:
+      summary: suggested
+      tags:
+      - users
+      responses:
+        '200':
+          description: おすすめユーザーには自分とフォロー済みの人が含まれない
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                    username:
+                      type: string
+                    fullName:
+                      type: string
+                    profileImg:
+                      type:
+                      - string
+                      - 'null'
+                    coverImg:
+                      type:
+                      - string
+                      - 'null'
+                    bio:
+                      type: string
+                    link:
+                      type: string
+                    followersCount:
+                      type: integer
+                    followingCount:
+                      type: integer
+                    isFollowing:
+                      type: boolean
+                    createdAt:
+                      type: string
+                      format: date-time
+                  required:
+                  - id
+                  - username
+                  - fullName
+                  - profileImg
+                  - coverImg
+                  - bio
+                  - link
+                  - followersCount
+                  - followingCount
+                  - isFollowing
+                  - createdAt
+              example:
+              - id: 663665735
+                username: alice
+                fullName: Alice
+                profileImg:
+                coverImg:
+                bio: Hi, I'm Alice.
+                link: ''
+                followersCount: 0
+                followingCount: 1
+                isFollowing: false
+                createdAt: '2026-01-01T00:00:00.000Z'
+              - id: 902541635
+                username: bob
+                fullName: Bob
+                profileImg: "/api/media/avatars/fixture.png"
+                coverImg: "/api/media/covers/fixture.png"
+                bio: ''
+                link: ''
+                followersCount: 1
+                followingCount: 0
+                isFollowing: false
+                createdAt: '2026-01-01T00:00:00.000Z'
+        '401':
+          description: おすすめユーザーにはサインインが要る
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/unauthorized"
+                title: Unauthorized
+                status: 401
+                detail: Sign-in required
+                instance: "/api/users/suggested"
+  "/api/users/{username}":
+    get:
+      summary: show
+      tags:
+      - users
+      parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+        example: nobody
+      responses:
+        '200':
+          description: 画像のないプロフィール
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type:
+                    - string
+                    - 'null'
+                  coverImg:
+                    type:
+                    - string
+                    - 'null'
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                  followersCount:
+                    type: integer
+                  followingCount:
+                    type: integer
+                  isFollowing:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - coverImg
+                - bio
+                - link
+                - followersCount
+                - followingCount
+                - isFollowing
+                - createdAt
+              example:
+                id: 663665735
+                username: alice
+                fullName: Alice
+                profileImg:
+                coverImg:
+                bio: Hi, I'm Alice.
+                link: ''
+                followersCount: 0
+                followingCount: 1
+                isFollowing: false
+                createdAt: '2026-01-01T00:00:00.000Z'
+        '404':
+          description: 存在しないユーザー名は 404
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+              example:
+                type: "/problems/not-found"
+                title: Not Found
+                status: 404
+                detail: Resource not found
+                instance: "/api/users/nobody"
+  "/api/users/{username}/follow":
+    delete:
+      summary: destroy
+      tags:
+      - follows
+      parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+        example: bob
+      responses:
+        '200':
+          description: フォローを外す
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type: string
+                  coverImg:
+                    type: string
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                  followersCount:
+                    type: integer
+                  followingCount:
+                    type: integer
+                  isFollowing:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - coverImg
+                - bio
+                - link
+                - followersCount
+                - followingCount
+                - isFollowing
+                - createdAt
+              example:
+                id: 902541635
+                username: bob
+                fullName: Bob
+                profileImg: "/api/media/avatars/fixture.png"
+                coverImg: "/api/media/covers/fixture.png"
+                bio: ''
+                link: ''
+                followersCount: 0
+                followingCount: 0
+                isFollowing: false
+                createdAt: '2026-01-01T00:00:00.000Z'
+    post:
+      summary: create
+      tags:
+      - follows
+      parameters:
+      - name: username
+        in: path
+        required: true
+        schema:
+          type: string
+        example: carol
+      responses:
+        '200':
+          description: フォローすると初回だけ相手に通知される
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  username:
+                    type: string
+                  fullName:
+                    type: string
+                  profileImg:
+                    type: string
+                  coverImg:
+                    type: string
+                  bio:
+                    type: string
+                  link:
+                    type: string
+                  followersCount:
+                    type: integer
+                  followingCount:
+                    type: integer
+                  isFollowing:
+                    type: boolean
+                  createdAt:
+                    type: string
+                    format: date-time
+                required:
+                - id
+                - username
+                - fullName
+                - profileImg
+                - coverImg
+                - bio
+                - link
+                - followersCount
+                - followingCount
+                - isFollowing
+                - createdAt
+              example:
+                id: 708742340
+                username: carol
+                fullName: Carol
+                profileImg: "/api/media/avatars/fixture.png"
+                coverImg: "/api/media/covers/fixture.png"
+                bio: ''
+                link: ''
+                followersCount: 1
+                followingCount: 0
+                isFollowing: true
+                createdAt: '2026-01-01T00:00:00.000Z'
+        '422':
+          description: 自分自身のフォローは拒否される
+          content:
+            application/problem+json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+                  instance:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+                      required:
+                      - field
+                      - message
+                required:
+                - type
+                - title
+                - status
+                - detail
+                - instance
+                - errors
+              example:
+                type: "/problems/unprocessable-content"
+                title: Unprocessable Content
+                status: 422
+                detail: The request failed validation. See `errors` for the offending
+                  fields.
+                instance: "/api/users/alice/follow"
+                errors:
+                - field: followingId
+                  message: Following cannot be yourself
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties: {}
+            example: {}
