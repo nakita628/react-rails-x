@@ -1,0 +1,19 @@
+{
+  "name": "backend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "prisma validate && prisma generate",
+    "db:push": "prisma db push --url file:./storage/development.sqlite3",
+    "db:push:test": "prisma db push --url file:./storage/test.sqlite3",
+    "studio": "hekireki studio --url file:./storage/development.sqlite3",
+    "seed": "hekireki seed --reset"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.61.1",
+    "@prisma/adapter-better-sqlite3": "8.1.0-dev.7",
+    "@prisma/client": "8.1.0-dev.7",
+    "hekireki": "0.32.0",
+    "prisma": "8.1.0-dev.7"
+  }
+}

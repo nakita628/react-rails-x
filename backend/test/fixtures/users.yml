@@ -1,0 +1,27 @@
+# 全員のパスワードは secret123（test_helper の PASSWORD）
+alice:
+  username: alice
+  full_name: Alice
+  email_address: alice@example.com
+  password_digest: <%= BCrypt::Password.create("secret123", cost: BCrypt::Engine::MIN_COST) %>
+  bio: "Hi, I'm Alice."
+  created_at: 2026-01-01 00:00:00
+
+# プロフィール画像とカバー画像を持つ（キーだけで、ファイルは置かない）
+bob:
+  username: bob
+  full_name: Bob
+  email_address: bob@example.com
+  password_digest: <%= BCrypt::Password.create("secret123", cost: BCrypt::Engine::MIN_COST) %>
+  profile_image_key: avatars/fixture.png
+  cover_image_key: covers/fixture.png
+  created_at: 2026-01-01 00:00:00
+
+carol:
+  username: carol
+  full_name: Carol
+  email_address: carol@example.com
+  password_digest: <%= BCrypt::Password.create("secret123", cost: BCrypt::Engine::MIN_COST) %>
+  profile_image_key: avatars/fixture.png
+  cover_image_key: covers/fixture.png
+  created_at: 2026-01-01 00:00:00

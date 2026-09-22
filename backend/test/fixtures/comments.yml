@@ -1,0 +1,5 @@
+bobs_comment:
+  post: alices_post
+  author: bob
+  text: Nice post!
+  created_at: 2026-01-02 02:00:00

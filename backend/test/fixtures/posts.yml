@@ -1,0 +1,19 @@
+# 時刻は並び順を決めるために明示する（新しい順: carols_photo → bobs_post → alices_post）
+alices_post:
+  author: alice
+  text: hello from alice
+  created_at: 2026-01-02 00:00:00
+  updated_at: 2026-01-02 00:00:00
+
+bobs_post:
+  author: bob
+  text: hello from bob
+  created_at: 2026-01-03 00:00:00
+  updated_at: 2026-01-03 00:00:00
+
+# 画像だけの投稿（キーだけで、ファイルは置かない）
+carols_photo:
+  author: carol
+  image_key: posts/fixture.png
+  created_at: 2026-01-04 00:00:00
+  updated_at: 2026-01-04 00:00:00

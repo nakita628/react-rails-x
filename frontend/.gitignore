@@ -1,0 +1,11 @@
+node_modules
+dist
+.tanstack
+*.local
+
+# Written by @tanstack/router-plugin on dev/build.
+src/routeTree.gen.ts
+
+# Playwright の出力
+test-results
+playwright-report

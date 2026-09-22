@@ -1,0 +1,5 @@
+# alices_post より新しく、bobs_post より古い
+carol_reposts_alices_post:
+  user: carol
+  post: alices_post
+  created_at: 2026-01-02 12:00:00

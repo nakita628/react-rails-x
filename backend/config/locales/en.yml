@@ -1,0 +1,15 @@
+# このディレクトリのファイルは Rails が読む。config/locales/models は schema.prisma の
+# @ar.name 行から hekireki が書く。
+en:
+  errors:
+    messages:
+      # has_secure_password 自身の 72 バイト上限。他の文字数メッセージと同じ言い回しにする。
+      password_too_long: "must be 72 characters or fewer"
+  activerecord:
+    attributes:
+      # アップロード用の仮想属性（条件は schema.prisma、判定は ImageValidator）。人が呼ぶ名前を付ける。
+      post:
+        img: "Image"
+      user:
+        profile_img: "Profile image"
+        cover_img: "Cover image"

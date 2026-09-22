@@ -1,0 +1,207 @@
+// X クローンのデータモデル。hekireki がここから app/models・ER 図（../ER.png）・seed 用スキーマを
+// 書き出し、テーブルは Prisma が作る（pnpm generate, pnpm db:push）。Rails 側に migration はない。
+// アップロード画像は仮想属性（img, profileImg, coverImg）で、許可する形式と上限はここで宣言し、判定は
+// app/validators/image_validator.rb が行う。*Key 列には MediaStore がファイルを置いた場所を持つ。
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator Hekireki-ActiveRecord {
+  provider = "hekireki-activerecord"
+  output   = "app/models"
+}
+
+generator Hekireki-ER {
+  provider = "hekireki-er"
+  output   = "../ER.png"
+}
+
+generator Hekireki-Seed {
+  provider = "hekireki-seed"
+  output   = "generated/seed"
+}
+
+// `hekireki seed` が書き込みに使う Prisma Client（Rails からは使わない）。
+generator client {
+  provider = "prisma-client"
+  output   = "generated/client"
+}
+
+/// サインインする人（rails generate authentication の形）。has_secure_password が password_digest を
+/// 読み書きし、サインインしたブラウザごとに Session 行ができる。
+/// @ar.has_secure_password
+/// @ar.normalizes :email_address, with: ->(e) { e.strip.downcase }
+/// @ar.validates :password, length: { minimum: 6, too_short: "must be at least %{count} characters" }, allow_nil: true
+/// @ar.attr_accessor :profile_img, :cover_img
+/// @ar.validates :profile_img, :cover_img, image: { types: %w[image/png image/jpeg image/webp image/gif], max: 5.megabytes }
+/// @ar.before_save { self.profile_image_key = MediaStore.replace(profile_image_key, "avatars", profile_img) if profile_img }
+/// @ar.before_save { self.cover_image_key = MediaStore.replace(cover_image_key, "covers", cover_img) if cover_img }
+/// @ar.after_destroy { MediaStore.delete(profile_image_key, cover_image_key) }
+model User {
+  id             Int      @id @default(autoincrement())
+  /// ユーザー名: 英数字とアンダースコア、15 文字以内
+  /// @ar.format(with: /\A[a-zA-Z0-9_]{1,15}\z/, message: "must be 15 characters or fewer and contain only letters, digits, and underscores")
+  username       String   @unique
+  /// 表示名
+  fullName       String   @map("full_name")
+  /// メールアドレス
+  /// @ar.format(with: URI::MailTo::EMAIL_REGEXP, message: "must be a valid email address")
+  emailAddress   String   @unique @map("email_address")
+  /// パスワードの bcrypt ダイジェスト
+  passwordDigest String   @map("password_digest")
+  /// MediaStore が置いたプロフィール画像の場所（未設定なら null）
+  profileImageKey String? @map("profile_image_key")
+  /// MediaStore が置いたカバー画像の場所（未設定なら null）
+  coverImageKey  String?  @map("cover_image_key")
+  /// 自己紹介
+  bio            String   @default("")
+  /// 外部リンク URL（http / https のみ、または空）
+  /// @ar.length(maximum: 100, too_long: "must be %{count} characters or fewer")
+  /// @ar.format(with: %r{\A(https?://\S+)?\z}, message: "must be a URL starting with http:// or https://")
+  link           String   @default("")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  sessions          Session[]
+  posts             Post[]
+  comments          Comment[]
+  likes             Like[]
+  reposts           Repost[]
+  bookmarks         Bookmark[]
+  /// このユーザーがフォローしている相手（このユーザーが follower 側）
+  following         Follow[]       @relation("Following")
+  /// このユーザーをフォローしている人
+  followers         Follow[]       @relation("Followers")
+  notificationsFrom Notification[] @relation("NotificationFrom")
+  notificationsTo   Notification[] @relation("NotificationTo")
+
+  @@map("users")
+}
+
+/// サインインしたブラウザ。署名付き session_id cookie から引く。
+model Session {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("sessions")
+}
+
+/// 投稿。テキストか画像、またはその両方。
+/// @ar.scope :recent, -> { order(created_at: :desc, id: :desc) }
+/// @ar.attr_accessor :img
+/// @ar.validates :img, image: { types: %w[image/png image/jpeg image/webp image/gif], max: 5.megabytes }
+/// @ar.validates :text, presence: { message: "or an image is required" }, unless: -> { img || image_key }
+/// @ar.before_save { self.image_key = MediaStore.store("posts", img) if img }
+/// @ar.after_destroy { MediaStore.delete(image_key) }
+model Post {
+  id        Int      @id @default(autoincrement())
+  /// 本文
+  text      String?
+  /// MediaStore が置いた添付画像の場所（なければ null）
+  imageKey  String?  @map("image_key")
+  authorId  Int      @map("author_id")
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  comments  Comment[]
+  likes     Like[]
+  reposts   Repost[]
+  bookmarks Bookmark[]
+
+  @@index([createdAt])
+  @@index([authorId, createdAt])
+  @@map("posts")
+}
+
+/// 投稿へのコメント。
+model Comment {
+  id        Int      @id @default(autoincrement())
+  /// 本文（1〜280 文字）
+  /// @ar.name(en: "Comment")
+  /// @ar.length(maximum: 280, too_long: "must be %{count} characters or fewer")
+  text      String
+  postId    Int      @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  Int      @map("author_id")
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+  @@map("comments")
+}
+
+/// follower が following をフォローする。自分自身はフォローできない。
+/// @ar.validates :following_id, comparison: { other_than: :follower_id, message: "cannot be yourself" }
+model Follow {
+  followerId  Int      @map("follower_id")
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId Int      @map("following_id")
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model Like {
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int      @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("likes")
+}
+
+model Repost {
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int      @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("reposts")
+}
+
+/// 非公開。ブックマークに公開の件数はない。
+model Bookmark {
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    Int      @map("post_id")
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([userId, postId])
+  @@map("bookmarks")
+}
+
+/// 誰かにフォローされた、または投稿にいいねされた通知。
+model Notification {
+  id        Int      @id @default(autoincrement())
+  /// 種類（follow | like）
+  /// @ar.inclusion(in: %w[follow like])
+  type      String
+  /// 既読フラグ
+  read      Boolean  @default(false)
+  fromId    Int      @map("from_id")
+  from      User     @relation("NotificationFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  toId      Int      @map("to_id")
+  to        User     @relation("NotificationTo", fields: [toId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([toId, createdAt])
+  @@map("notifications")
+}

@@ -1,0 +1,4 @@
+bob_likes_alices_post:
+  user: bob
+  post: alices_post
+  created_at: 2026-01-02 01:00:00
